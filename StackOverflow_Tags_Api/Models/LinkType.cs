@@ -2,12 +2,12 @@
 {
     public enum LinkType
     {
-        Website, 
-        Twitter, 
-        Github, 
-        Facebook, 
-        Instagram, 
-        Support,  
+        Website,
+        Twitter,
+        Github,
+        Facebook,
+        Instagram,
+        Support,
         Linkedin
     }
 }

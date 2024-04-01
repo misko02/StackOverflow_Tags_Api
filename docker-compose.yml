@@ -3,6 +3,18 @@ version: '3.4'
 services:
   stackoverflow_tags_api:
     image: ${DOCKER_REGISTRY-}stackoverflowtagsapi
+    ports: 
+        - "8080:80"
     build:
       context: .
       dockerfile: StackOverflow_Tags_Api/Dockerfile
+    depends_on:
+      - stackoverflow_tags_db
+  stackoverflow_tags_db:
+     container_name: stackoverflow_tags_db
+     image: mcr.microsoft.com/mssql/server:2019-latest
+     ports: 
+        - "1433:1433"
+     environment:
+        - ACCEPT_EULA=Y
+        - SA_PASSWORD=SecretPassword

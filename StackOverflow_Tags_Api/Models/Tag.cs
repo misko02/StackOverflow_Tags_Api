@@ -1,8 +1,11 @@
-﻿
+﻿using Microsoft.EntityFrameworkCore;
+
 namespace StackOverflow_Tags_Api.Models
 {
+    [PrimaryKey(nameof(Id))]
     public record Tag
     {
+        public int Id { get; init; }
         public List<Collective> Collectives { get; init; } = [];
         public int Count { get; init; }
         public bool HasSynonyms { get; init; }
