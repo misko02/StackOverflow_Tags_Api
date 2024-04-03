@@ -1,30 +1,41 @@
-﻿using StackOverflow_Tags_Api.Models;
+﻿using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using StackOverflow_Tags_Api.Models;
 using System.IO.Compression;
-using System.Text.Json;
 
 namespace StackOverflow_Tags_Api.Services
 {
     public static class ApiService
     {
-        private static readonly HttpClient client = new HttpClient();
+        private static readonly HttpClient client = new();
 
-        public static async Task<List<Tag>> GetTags()
+        private static async Task LoadTags(List<Tag> tags, int page = 1)
         {
             try
             {
-                var response = await client.GetStreamAsync("https://api.stackexchange.com/2.3/tags?order=desc&sort=popular&site=stackoverflow");
-
-                using GZipStream decompressionStream = new GZipStream(response, CompressionMode.Decompress);
-                using StreamReader reader = new StreamReader(decompressionStream);
-                var tagsArray = JsonSerializer.Deserialize<dynamic>(reader.ReadToEnd());
-                return JsonSerializer.Deserialize<List<Tag>>(tagsArray?.GetProperty("items").ToString());
+                var response = await client.GetStreamAsync($"https://api.stackexchange.com//2.3/tags?page={page}&pagesize=100&order=desc&sort=popular&site=stackoverflow");
+                using var decompressionStream = new GZipStream(response, CompressionMode.Decompress);
+                using var reader = new StreamReader(decompressionStream);
+                var tagsArray = JsonConvert.DeserializeObject<dynamic>(reader.ReadToEnd());
+                tags.AddRange(JsonConvert.DeserializeObject<List<Tag>>(tagsArray?.items.ToString()));
+                if ((bool)tagsArray?.has_more && page <= 10)
+                {
+                    await LoadTags(tags, page + 1);
+                }
             }
             catch (HttpRequestException e)
             {
                 Console.WriteLine("\nException Caught!");
-                Console.WriteLine("Message :{0} ", e.Message);
-                return new List<Tag>();
+                Console.WriteLine(e.Message);
+                return;
             }
+        }
+
+        public static async Task<List<Tag>> GetTags()
+        {
+            var tags = new List<Tag>();
+            await LoadTags(tags);
+            return tags;
         }
     }
 }

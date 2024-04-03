@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StackOverflow_Tags_Api.Data;
 using StackOverflow_Tags_Api.Models;
 using StackOverflow_Tags_Api.Services;
+using System.Linq.Expressions;
 
 namespace StackOverflow_Tags_Api.controlers;
 
@@ -12,28 +14,56 @@ public static class TagEndpoints
     {
         var group = routes.MapGroup("/api/Tag").WithTags(nameof(Tag));
 
-        group.MapGet("/", async (StackOverflow_Tags_ApiContext db) =>
+        group.MapGet("/", async (StackOverflow_Tags_ApiContext db, [FromServices] ILogger<Program> logger, int page = 0, int pagesize = 10, string? sortBy = "name", bool descending = false) =>
         {
-            if (!db.Tag.Any())
+            try
             {
-                var tags = await ApiService.GetTags();
-                db.AddRange(tags);
-                db.SaveChanges();
-            }
-            return await db.Tag.ToListAsync();
-        })
-        .WithName("GetAllTags")
-        .WithOpenApi();
+                if (!db.Tag.Any())
+                {
+                    var tags = await ApiService.GetTags();
+                    db.AddRange(tags);
+                    db.SaveChanges();
+                }
+                decimal sum = db.Tag.Sum(tag => tag.Count);
+                Expression<Func<Tag, object>> sortExpression = ChooseSortMethod(sortBy);
 
-        group.MapGet("/{id}", async Task<Results<Ok<Tag>, NotFound>> (int id, StackOverflow_Tags_ApiContext db) =>
-        {
-            return await db.Tag.AsNoTracking()
-                .FirstOrDefaultAsync(model => model.Id == id)
-                is Tag model
-                    ? TypedResults.Ok(model)
-                    : TypedResults.NotFound();
+                var result = descending ?
+                (db.Tag.Skip(page * pagesize).Take(pagesize).OrderByDescending(sortExpression)
+                .Select(tag => new
+                {
+                    tag,
+                    percent = (decimal)tag.Count * 100 / sum
+                })) :
+                db.Tag.Skip(page * pagesize).Take(pagesize).OrderBy(sortExpression)
+                .Select(tag => new
+                {
+                    tag,
+                    percent = (decimal)tag.Count * 100 / sum
+                });
+                return await result.ToListAsync();
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e.Message);
+                return [];
+            }
         })
-        .WithName("GetTagById")
+        .WithName("GetTagsPage")
         .WithOpenApi();
+    }
+
+    private static Expression<Func<Tag, object>> ChooseSortMethod(string? sortBy)
+    {
+        return sortBy switch
+        {
+            "name" => tag => tag.Name,
+            "count" => tag => tag.Count,
+            "has_synonyms" => tag => tag.HasSynonyms,
+            "is_moderator_only" => tag => tag.IsModeratorOnly,
+            "is_required" => tag => tag.IsRequired,
+            "last_activity_date" => tag => tag.LastActivityDate,
+            "user_id" => tag => tag.UserId,
+            _ => tag => tag.Name
+        };
     }
 }

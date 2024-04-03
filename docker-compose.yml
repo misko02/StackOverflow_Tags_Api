@@ -17,4 +17,4 @@ services:
         - "1433:1433"
      environment:
         - ACCEPT_EULA=Y
-        - SA_PASSWORD=SecretPassword
+        - SA_PASSWORD=26c05b50-913d-4416-8809-1c1f9395c691
